@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nu7hatch/gouuid"
 	"golang.org/x/net/context"
 )
 
@@ -38,10 +39,11 @@ func (s Severity) String() string {
 
 // An Event is a discrete logging event
 type Event struct {
-	Context   context.Context
-	Timestamp time.Time `json:"timestamp"`
-	Severity  Severity  `json:"severity"`
-	Message   string    `json:"message"`
+	Context   context.Context `json:"-"`
+	Id        string          `json:"id"`
+	Timestamp time.Time       `json:"timestamp"`
+	Severity  Severity        `json:"severity"`
+	Message   string          `json:"message"`
 	// Metadata are structured key-value pairs which describe the event.
 	Metadata map[string]string `json:"meta,omitempty"`
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
@@ -50,8 +52,8 @@ type Event struct {
 }
 
 func (e Event) String() string {
-	return fmt.Sprintf("[%s] %s %s (metadata=%v labels=%v)", e.Timestamp.Format(TimeFormat), e.Severity.String(),
-		e.Message, e.Metadata, e.Labels)
+	return fmt.Sprintf("[%s] %s %s (metadata=%v labels=%v id=%s)", e.Timestamp.Format(TimeFormat), e.Severity.String(),
+		e.Message, e.Metadata, e.Labels, e.Id)
 }
 
 // Eventf constructs an event from the given message string and formatting operands. Optionally, event metadata
@@ -60,6 +62,12 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
+	id, err := uuid.NewV4()
+	if err != nil {
+		return Event{}
+	}
+
 	metadata := map[string]string(nil)
 	if len(params) > 0 {
 		fmtOperands := countFmtOperands(msg)
@@ -76,9 +84,11 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 			msg = fmt.Sprintf(msg, params...)
 		}
 	}
+
 	return Event{
 		Context:   ctx,
-		Timestamp: time.Now(),
+		Id:        id.String(),
+		Timestamp: time.Now().UTC(),
 		Severity:  sev,
 		Message:   msg,
 		Metadata:  metadata}
