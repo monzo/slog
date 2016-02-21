@@ -9,5 +9,3 @@ slog is a library for capturing structured log information. In contrast to "trad
 Currently, slog forwards messages to [seelog](https://github.com/cihub/seelog) by default. However, it is easy to write customised outputs which make use of the context and metadata.
 
 At [Mondo](https://getmondo.co.uk/), slog captures events both on a per-service and a per-request basis (using the context information). This lets us view all the logs for a given request across all the micro-services it touches.
-
-![Slog UI](https://s3.amazonaws.com/f.cl.ly/items/2H2A3I2Q1L0B220I0x32/Mondo__Slog-2.png?v=f87ea1be)
