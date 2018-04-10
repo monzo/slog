@@ -11,13 +11,13 @@ import (
 type Severity int
 
 const (
-	TimeFormat             = "2006-01-02 15:04:05-0700 (MST)"
-	TraceSeverity Severity = iota
-	DebugSeverity
-	InfoSeverity
-	WarnSeverity
-	ErrorSeverity
-	CriticalSeverity
+	TimeFormat                = "2006-01-02 15:04:05-0700 (MST)"
+	TraceSeverity    Severity = 1
+	DebugSeverity    Severity = 2
+	InfoSeverity     Severity = 3
+	WarnSeverity     Severity = 4
+	ErrorSeverity    Severity = 5
+	CriticalSeverity Severity = 6
 )
 
 func (s Severity) String() string {
@@ -71,15 +71,31 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	metadata := map[string]string(nil)
 	if len(params) > 0 {
 		fmtOperands := countFmtOperands(msg)
+
+		// If we have been provided with more params than we have formatting arguments
+		// then the last param should be a metadata map
 		if len(params) > fmtOperands {
-			param := params[len(params)-1]
-			if param == nil {
-				params = params[:len(params)-1]
-			} else if metadata_, ok := param.(map[string]string); ok {
-				metadata = metadata_
-				params = params[:len(params)-1]
+			metadataParam := params[len(params)-1]
+			params = params[:len(params)-1]
+
+			if metadataParam, ok := metadataParam.(map[string]string); ok {
+				// Note: we merge the metadata here to avoid mutating the map
+				metadata = mergeMetadata(metadata, metadataParam)
 			}
 		}
+
+		// If any of the provided params can be "upgraded" to a logMetadataProvider i.e.
+		// they themselves have a LogMetadata method that returns a map[string]string
+		// then we merge these params with the metadata.
+		for _, param := range params {
+			param, ok := param.(logMetadataProvider)
+			if !ok {
+				continue
+			}
+
+			metadata = mergeMetadata(metadata, param.LogMetadata())
+		}
+
 		if fmtOperands > 0 {
 			msg = fmt.Sprintf(msg, params...)
 		}
@@ -92,4 +108,27 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		Severity:  sev,
 		Message:   msg,
 		Metadata:  metadata}
+}
+
+type logMetadataProvider interface {
+	LogMetadata() map[string]string
+}
+
+// mergeMetadata merges the metadata but preserves existing entries
+func mergeMetadata(current, new map[string]string) map[string]string {
+	if len(new) == 0 {
+		return current
+	}
+
+	if current == nil {
+		current = map[string]string{}
+	}
+
+	for k, v := range new {
+		if _, ok := current[k]; !ok {
+			current[k] = v
+		}
+	}
+
+	return current
 }
