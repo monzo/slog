@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	defaultLogger  Logger = SeelogLogger()
+	defaultLogger  Logger = StdlibLogger{}
 	defaultLoggerM sync.RWMutex
 )
 
