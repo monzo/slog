@@ -17,6 +17,7 @@ func TestCountFmtOperands(t *testing.T) {
 		`%c`:    1,
 		`%d`:    1,
 		`%o`:    1,
+		`%O`:    1,
 		`%U`:    1,
 		`%b`:    1,
 		`%e`:    1,
