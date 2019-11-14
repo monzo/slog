@@ -3,7 +3,7 @@
 
 slog is a library for capturing structured log information. In contrast to "traditional" logging libraries, slog:
 
-* captures a Context for each logging event
+* captures a [Context](https://golang.org/pkg/context/) for each event
 * captures arbitrary key-value metadata on each log event
 
 Currently, slog forwards messages to [seelog](https://github.com/cihub/seelog) by default. However, it is easy to write customised outputs which make use of the context and metadata.
