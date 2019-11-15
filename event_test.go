@@ -13,7 +13,9 @@ func TestEventfFormatsParams(t *testing.T) {
 
 func TestEventfNilContext(t *testing.T) {
 	e := Eventf(CriticalSeverity, nil, "foo: %s", "bar")
-	assert.NotNil(t, "foo: bar", e.Context)
+	if e.Context == nil {
+		t.Error("background context should have been used automatically")
+	}
 }
 
 func TestEventfMetadataParam(t *testing.T) {

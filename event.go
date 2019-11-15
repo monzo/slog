@@ -1,11 +1,11 @@
 package slog
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/nu7hatch/gouuid"
-	"golang.org/x/net/context"
 )
 
 type Severity int
