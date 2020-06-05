@@ -81,17 +81,6 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 
 		fmtOperands := countFmtOperands(msg)
 
-		// Catch the special error case for Event(..., "Something happened", err).
-		// We explicitly don't process Event(..., "Something happened: %v", err) this way, as
-		// then intentions are not the same, and we don't want to take an opinion on whether to
-		// remove the format argument in this case.
-		if len(params) == 1 && fmtOperands == 0 {
-			errParam, ok := params[0].(error)
-			if ok {
-				return createErrorEvent(ctx, sev, id, msg, errParam)
-			}
-		}
-
 		// If we have been provided with more params than we have formatting arguments
 		// then the last param should be a metadata map
 		if len(params) > fmtOperands {

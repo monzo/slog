@@ -27,12 +27,7 @@ slog.Error(ctx, "Failed to load widget", map[string]interface{}{
 })
 ```
 
-This lets allows for interoperability with other systems (e.g. one which also forwards errors to an error tracking system) without losing context. `slog` also provides a shorthand for capturing this case in the form of:
-
-```go
-err := errors.New("No splines to reticulate")
-slog.Error(ctx, "Failed to load widget", err)
-```
+This lets allows for interoperability with other systems (e.g. one which also forwards errors to an error tracking system) without losing context.
 
 ### Other uses
 
