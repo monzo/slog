@@ -49,10 +49,7 @@ type Event struct {
 	Severity  Severity        `json:"severity"`
 	Message   string          `json:"message"`
 	// Metadata are structured key-value pairs which describe the event.
-	Metadata map[string]string `json:"meta,omitempty"`
-	// RawMetadata is metadata before it has been transformed to string form.
-	// Metadata and RawMetadata will always contain the same keys.
-	RawMetadata map[string]interface{} `json:"rawMeta,omitempty"`
+	Metadata map[string]interface{} `json:"meta,omitempty"`
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
 	// indexed.
 	Labels map[string]string `json:"labels,omitempty"`
@@ -75,8 +72,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		return Event{}
 	}
 
-	rawMetadata := map[string]interface{}(nil)
-	metadata := map[string]string(nil)
+	metadata := map[string]interface{}(nil)
 	if len(params) > 0 {
 
 		fmtOperands := countFmtOperands(msg)
@@ -87,26 +83,15 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 			metadataParam := params[len(params)-1]
 			params = params[:len(params)-1]
 
+			// This is deprecated, but continue to support a map of strings.
 			if metadataParam, ok := metadataParam.(map[string]string); ok {
 				// Note: we merge the metadata here to avoid mutating the map
-				metadata = mergeMetadata(metadata, metadataParam)
-				// To maintain the invariant that Metadata contains the stringified version of RawMetadata
-				// we copy all values in RawMetadata too. This isn't very efficient, but the invariant is
-				// important for consumers of RawMetadata.
-				rawMetadata = make(map[string]interface{}, len(metadata))
-				for k, v := range metadata {
-					rawMetadata[k] = v
-				}
+				metadata = mergeMetadata(metadata, stringMapToInterfaceMap(metadataParam))
 			}
 
-			// Check for 'raw' metadata rather than strings, and convert to string form if found.
+			// Check for 'raw' metadata rather than strings.
 			if metadataParam, ok := metadataParam.(map[string]interface{}); ok {
-				rawMetadata = mergeRawMetadata(rawMetadata, metadataParam)
-
-				metadata = make(map[string]string, len(rawMetadata))
-				for k, v := range rawMetadata {
-					metadata[k] = fmt.Sprint(v)
-				}
+				metadata = mergeMetadata(metadata, metadataParam)
 			}
 		}
 
@@ -118,8 +103,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 			if !ok {
 				continue
 			}
-
-			metadata = mergeMetadata(metadata, param.LogMetadata())
+			metadata = mergeMetadata(metadata, stringMapToInterfaceMap(param.LogMetadata()))
 		}
 
 		if fmtOperands > 0 {
@@ -128,53 +112,25 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	}
 
 	return Event{
-		Context:     ctx,
-		Id:          id.String(),
-		Timestamp:   time.Now().UTC(),
-		Severity:    sev,
-		Message:     msg,
-		Metadata:    metadata,
-		RawMetadata: rawMetadata,
-	}
-}
-
-func createErrorEvent(ctx context.Context, sev Severity, id *uuid.UUID, msg string, err error) Event {
-	return Event{
 		Context:   ctx,
 		Id:        id.String(),
 		Timestamp: time.Now().UTC(),
 		Severity:  sev,
 		Message:   msg,
-		Metadata: map[string]string{
-			"error": err.Error(),
-		},
-		RawMetadata: map[string]interface{}{
-			"error": err,
-		},
+		Metadata:  metadata,
 	}
+}
+
+func stringMapToInterfaceMap(m map[string]string) map[string]interface{} {
+	shim := map[string]interface{}{}
+	for k, v := range m {
+		shim[k] = v
+	}
+	return shim
 }
 
 // mergeMetadata merges the metadata but preserves existing entries
-func mergeMetadata(current, new map[string]string) map[string]string {
-	if len(new) == 0 {
-		return current
-	}
-
-	if current == nil {
-		current = map[string]string{}
-	}
-
-	for k, v := range new {
-		if _, ok := current[k]; !ok {
-			current[k] = v
-		}
-	}
-
-	return current
-}
-
-// mergeRawMetadata merges the metadata but preserves existing entries
-func mergeRawMetadata(current, new map[string]interface{}) map[string]interface{} {
+func mergeMetadata(current, new map[string]interface{}) map[string]interface{} {
 	if len(new) == 0 {
 		return current
 	}

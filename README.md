@@ -18,17 +18,6 @@ slog.Info(ctx, "Loading widget", map[string]interface{}{
 })
 ```
 
-When logging an error, we recommend attaching the actual error in the "error" key:
-
-```go
-err := errors.New("No splines to reticulate")
-slog.Error(ctx, "Failed to load widget", map[string]interface{}{
-    "error": err,
-})
-```
-
-This lets allows for interoperability with other systems (e.g. one which also forwards errors to an error tracking system) without losing context.
-
 ### Other uses
 
 For backwards-compatibility, slog accepts metadata in the form of `map[string]string`.
