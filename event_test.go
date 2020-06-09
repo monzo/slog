@@ -25,12 +25,6 @@ func TestEventMetadata(t *testing.T) {
 		params   []interface{}
 		expected map[string]interface{}
 	}{
-		// {
-		// 	desc: "Message with metadata",
-		// 	message: "test",
-		// 	params: []interface{}{},
-		// 	expected: map[string]interface{}{},
-		// },
 		{
 			desc:     "Message with no params",
 			message:  "test",
