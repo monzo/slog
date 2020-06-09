@@ -18,6 +18,22 @@ slog.Info(ctx, "Loading widget", map[string]interface{}{
 })
 ```
 
+### Errors
+
+`slog` also provides a shorthand for capturing errors in the form of:
+
+```go
+slog.Error(ctx, "Failed to load widget", err)
+```
+
+This is functionally equivalent to:
+
+```go
+slog.Error(ctx, "Failed to load widget", map[string]interface{}{
+    "error": err,
+})
+```
+
 ### Other uses
 
 For backwards-compatibility, slog accepts metadata in the form of `map[string]string`.
