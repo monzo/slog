@@ -28,7 +28,22 @@ func TestEventfMetadataParam(t *testing.T) {
 	}
 
 	e := Eventf(CriticalSeverity, nil, "foo: %v", param, metadata)
-	assert.EqualValues(t, metadata, e.Metadata)
+	expected := map[string]interface{}{
+		"foo": "foo",
+	}
+	assert.EqualValues(t, expected, e.Metadata)
+}
+
+func TestEventfMetadataParamInterface(t *testing.T) {
+	metadata := map[string]interface{}{
+		"foo": 3,
+	}
+
+	e := Eventf(CriticalSeverity, nil, "foo", metadata)
+	expected := map[string]interface{}{
+		"foo": 3,
+	}
+	assert.EqualValues(t, expected, e.Metadata)
 }
 
 type testLogMetadataProvider map[string]string
@@ -43,5 +58,32 @@ func TestEventfLogMetadataProvider(t *testing.T) {
 	}
 
 	e := Eventf(CriticalSeverity, nil, "foo: %v", param)
-	assert.EqualValues(t, param, e.Metadata)
+	expected := map[string]interface{}{
+		"foo": "bar",
+	}
+	assert.EqualValues(t, expected, e.Metadata)
+}
+
+func BenchmarkLogMetadataInterface(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Eventf(ErrorSeverity, nil, "foo", map[string]interface{}{
+			"string": "foo",
+			"number": 42,
+		})
+	}
+}
+
+func BenchmarkLogMetadataStrings(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Eventf(ErrorSeverity, nil, "foo", map[string]string{
+			"string": "foo",
+			"number": "42",
+		})
+	}
+}
+
+func BenchmarkLogMetadataInterpolated(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Eventf(ErrorSeverity, nil, "foo %s %d", "foo", 42)
+	}
 }

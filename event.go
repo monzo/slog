@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nu7hatch/gouuid"
+	uuid "github.com/nu7hatch/gouuid"
 )
 
 type Severity int
@@ -37,6 +37,10 @@ func (s Severity) String() string {
 	}
 }
 
+type logMetadataProvider interface {
+	LogMetadata() map[string]string
+}
+
 // An Event is a discrete logging event
 type Event struct {
 	Context   context.Context `json:"-"`
@@ -45,7 +49,7 @@ type Event struct {
 	Severity  Severity        `json:"severity"`
 	Message   string          `json:"message"`
 	// Metadata are structured key-value pairs which describe the event.
-	Metadata map[string]string `json:"meta,omitempty"`
+	Metadata map[string]interface{} `json:"meta,omitempty"`
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
 	// indexed.
 	Labels map[string]string `json:"labels,omitempty"`
@@ -57,7 +61,7 @@ func (e Event) String() string {
 }
 
 // Eventf constructs an event from the given message string and formatting operands. Optionally, event metadata
-// (map[string]string) can be provided as a final argument.
+// (map[string]interface{}, or map[string]string) can be provided as a final argument.
 func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}) Event {
 	if ctx == nil {
 		ctx = context.Background()
@@ -68,8 +72,9 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		return Event{}
 	}
 
-	metadata := map[string]string(nil)
+	metadata := map[string]interface{}(nil)
 	if len(params) > 0 {
+
 		fmtOperands := countFmtOperands(msg)
 
 		// If we have been provided with more params than we have formatting arguments
@@ -78,8 +83,14 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 			metadataParam := params[len(params)-1]
 			params = params[:len(params)-1]
 
+			// This is deprecated, but continue to support a map of strings.
 			if metadataParam, ok := metadataParam.(map[string]string); ok {
 				// Note: we merge the metadata here to avoid mutating the map
+				metadata = mergeMetadata(metadata, stringMapToInterfaceMap(metadataParam))
+			}
+
+			// Check for 'raw' metadata rather than strings.
+			if metadataParam, ok := metadataParam.(map[string]interface{}); ok {
 				metadata = mergeMetadata(metadata, metadataParam)
 			}
 		}
@@ -92,8 +103,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 			if !ok {
 				continue
 			}
-
-			metadata = mergeMetadata(metadata, param.LogMetadata())
+			metadata = mergeMetadata(metadata, stringMapToInterfaceMap(param.LogMetadata()))
 		}
 
 		if fmtOperands > 0 {
@@ -107,21 +117,26 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		Timestamp: time.Now().UTC(),
 		Severity:  sev,
 		Message:   msg,
-		Metadata:  metadata}
+		Metadata:  metadata,
+	}
 }
 
-type logMetadataProvider interface {
-	LogMetadata() map[string]string
+func stringMapToInterfaceMap(m map[string]string) map[string]interface{} {
+	shim := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		shim[k] = v
+	}
+	return shim
 }
 
 // mergeMetadata merges the metadata but preserves existing entries
-func mergeMetadata(current, new map[string]string) map[string]string {
+func mergeMetadata(current, new map[string]interface{}) map[string]interface{} {
 	if len(new) == 0 {
 		return current
 	}
 
 	if current == nil {
-		current = map[string]string{}
+		current = map[string]interface{}{}
 	}
 
 	for k, v := range new {
