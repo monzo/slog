@@ -122,7 +122,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 }
 
 func stringMapToInterfaceMap(m map[string]string) map[string]interface{} {
-	shim := map[string]interface{}{}
+	shim := make(map[string]interface{}, len(m))
 	for k, v := range m {
 		shim[k] = v
 	}
