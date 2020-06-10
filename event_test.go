@@ -18,32 +18,100 @@ func TestEventfNilContext(t *testing.T) {
 	}
 }
 
-func TestEventfMetadataParam(t *testing.T) {
-	metadata := map[string]string{
-		"foo": "foo",
+func TestEventMetadata(t *testing.T) {
+	testCases := []struct {
+		desc     string
+		message  string
+		params   []interface{}
+		expected map[string]interface{}
+	}{
+		{
+			desc:     "Message with no params",
+			message:  "test",
+			params:   nil,
+			expected: nil,
+		},
+		{
+			desc:     "Message with no metadata",
+			message:  "test %d",
+			params:   []interface{}{43},
+			expected: nil,
+		},
+		{
+			desc:    "Message with string metadata",
+			message: "test",
+			params: []interface{}{
+				map[string]string{
+					"foo": "bar",
+				},
+			},
+			expected: map[string]interface{}{
+				"foo": "bar",
+			},
+		},
+		{
+			desc:    "Message with interface metadata",
+			message: "test",
+			params: []interface{}{
+				map[string]interface{}{
+					"foo": 42,
+				},
+			},
+			expected: map[string]interface{}{
+				"foo": 42,
+			},
+		},
+		{
+			desc:    "map as format arg with metadata",
+			message: "foo: %v",
+			params: []interface{}{
+				map[string]string{
+					"bar": "bar",
+				},
+				map[string]string{
+					"foo": "foo",
+				},
+			},
+			expected: map[string]interface{}{
+				"foo": "foo",
+			},
+		},
+		{
+			desc:    "Message with special error case",
+			message: "test",
+			params:  []interface{}{assert.AnError},
+			expected: map[string]interface{}{
+				"error": assert.AnError,
+			},
+		},
+		{
+			desc:    "Message with special error case and metadata",
+			message: "test",
+			params: []interface{}{assert.AnError, map[string]interface{}{
+				"foo": "bar",
+			}},
+			expected: map[string]interface{}{
+				"error": assert.AnError,
+				"foo":   "bar",
+			},
+		},
+		{
+			desc:    "Message with error param and metadata",
+			message: "eaten by a grue: %v",
+			params: []interface{}{assert.AnError, map[string]interface{}{
+				"foo": "bar",
+			}},
+			expected: map[string]interface{}{
+				"foo": "bar",
+			},
+		},
 	}
-
-	param := map[string]string{
-		"bar": "bar",
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			e := Eventf(ErrorSeverity, nil, tC.message, tC.params...)
+			assert.EqualValues(t, tC.expected, e.Metadata)
+		})
 	}
-
-	e := Eventf(CriticalSeverity, nil, "foo: %v", param, metadata)
-	expected := map[string]interface{}{
-		"foo": "foo",
-	}
-	assert.EqualValues(t, expected, e.Metadata)
-}
-
-func TestEventfMetadataParamInterface(t *testing.T) {
-	metadata := map[string]interface{}{
-		"foo": 3,
-	}
-
-	e := Eventf(CriticalSeverity, nil, "foo", metadata)
-	expected := map[string]interface{}{
-		"foo": 3,
-	}
-	assert.EqualValues(t, expected, e.Metadata)
 }
 
 type testLogMetadataProvider map[string]string

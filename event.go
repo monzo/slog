@@ -11,6 +11,7 @@ import (
 type Severity int
 
 const (
+	ErrorMetadataKey          = "error"
 	TimeFormat                = "2006-01-02 15:04:05-0700 (MST)"
 	TraceSeverity    Severity = 1
 	DebugSeverity    Severity = 2
@@ -77,22 +78,14 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 
 		fmtOperands := countFmtOperands(msg)
 
-		// If we have been provided with more params than we have formatting arguments
-		// then the last param should be a metadata map
-		if len(params) > fmtOperands {
-			metadataParam := params[len(params)-1]
-			params = params[:len(params)-1]
-
-			// This is deprecated, but continue to support a map of strings.
-			if metadataParam, ok := metadataParam.(map[string]string); ok {
-				// Note: we merge the metadata here to avoid mutating the map
-				metadata = mergeMetadata(metadata, stringMapToInterfaceMap(metadataParam))
-			}
-
-			// Check for 'raw' metadata rather than strings.
-			if metadataParam, ok := metadataParam.(map[string]interface{}); ok {
-				metadata = mergeMetadata(metadata, metadataParam)
-			}
+		// If we have been provided with more params than we have formatting arguments, then we have
+		// been given some metadata.
+		extraParamCount := len(params) - fmtOperands
+		// Take only the unaccounted for params as metadata params (error, metadata map or both)
+		metaParams := params[len(params)-extraParamCount:]
+		if len(metaParams) > 0 {
+			metadata = mergeMetadata(metadata, metadataFromParams(metaParams))
+			metadata = mergeMetadata(metadata, errorDataFromParams(metaParams))
 		}
 
 		// If any of the provided params can be "upgraded" to a logMetadataProvider i.e.
@@ -119,6 +112,34 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		Message:   msg,
 		Metadata:  metadata,
 	}
+}
+
+func errorDataFromParams(params []interface{}) map[string]interface{} {
+	for _, param := range params {
+		err, ok := param.(error)
+		if !ok {
+			continue
+		}
+		return map[string]interface{}{
+			ErrorMetadataKey: err,
+		}
+	}
+	return nil
+}
+
+func metadataFromParams(params []interface{}) map[string]interface{} {
+	for _, param := range params {
+		// This is deprecated, but continue to support a map of strings.
+		if metadataParam, ok := param.(map[string]string); ok {
+			return stringMapToInterfaceMap(metadataParam)
+		}
+
+		// Check for 'raw' metadata rather than strings.
+		if metadataParam, ok := param.(map[string]interface{}); ok {
+			return metadataParam
+		}
+	}
+	return nil
 }
 
 func stringMapToInterfaceMap(m map[string]string) map[string]interface{} {
