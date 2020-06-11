@@ -121,6 +121,45 @@ func TestEventMetadata(t *testing.T) {
 			expected:        nil,
 			expectedMessage: "Foo bar",
 		},
+		{
+			desc:            "Invalid: too many format params",
+			message:         "Foo %s %s",
+			params:          []interface{}{"bar"},
+			expected:        nil,
+			expectedMessage: "Foo bar %!s(MISSING)",
+		},
+		{
+			desc:    "Invalid: too many format params with metadata",
+			message: "Foo %s %s %s",
+			params: []interface{}{"bar", map[string]interface{}{
+				"meta": "data",
+			}},
+			expected: map[string]interface{}{
+				"meta": "data",
+			},
+			expectedMessage: "Foo bar map[meta:data] %!s(MISSING)",
+		},
+		{
+			desc:    "Invalid: too many format params with error",
+			message: "Foo %s %s %s",
+			params:  []interface{}{"bar", assert.AnError},
+			expected: map[string]interface{}{
+				"error": assert.AnError,
+			},
+			expectedMessage: "Foo bar assert.AnError general error for testing %!s(MISSING)",
+		},
+		{
+			desc:    "Invalid: too many format params with error and metadata",
+			message: "Foo %s %s %s %s",
+			params: []interface{}{"bar", assert.AnError, map[string]interface{}{
+				"meta": "data",
+			}},
+			expected: map[string]interface{}{
+				"error": assert.AnError,
+				"meta":  "data",
+			},
+			expectedMessage: "Foo bar assert.AnError general error for testing map[meta:data] %!s(MISSING)",
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
