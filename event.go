@@ -81,6 +81,23 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		// If we have been provided with more params than we have formatting arguments, then we have
 		// been given some metadata.
 		extraParamCount := len(params) - fmtOperands
+
+		// If we've got more fmtOperands than params, we have an invalid log statement.
+		// In this case, we do our best to extract metadata from existing params, and
+		// we also write as many as we can into the string.
+		// For example, if you give: log("foo %s %s", err), we'll end up with "foo {err} %!s(MISSING)"
+		// _and_ metadata extracted from the error.
+		//
+		// We do this so that we have the highest chance of actually capturing important details.
+		// The alternative is erroring loudly, but as we see this in the wild for cases which are
+		// rarely exercised and probably not covered in tests (e.g. error paths), I don't think
+		// there's a better alternative.
+		hasFormatOverflow := false
+		if extraParamCount < 0 {
+			hasFormatOverflow = true
+			extraParamCount = len(params)
+		}
+
 		// Take only the unaccounted for params as metadata params (error, metadata map or both)
 		metaParams := params[len(params)-extraParamCount:]
 		if len(metaParams) > 0 {
@@ -100,7 +117,11 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		}
 
 		if fmtOperands > 0 {
-			nonMetaParams := params[0 : len(params)-extraParamCount]
+			endIndex := len(params) - extraParamCount
+			if hasFormatOverflow {
+				endIndex = len(params)
+			}
+			nonMetaParams := params[0:endIndex]
 			msg = fmt.Sprintf(msg, nonMetaParams...)
 		}
 	}
