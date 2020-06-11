@@ -100,7 +100,8 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		}
 
 		if fmtOperands > 0 {
-			msg = fmt.Sprintf(msg, params...)
+			nonMetaParams := params[0 : len(params)-extraParamCount]
+			msg = fmt.Sprintf(msg, nonMetaParams...)
 		}
 	}
 

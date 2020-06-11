@@ -20,22 +20,25 @@ func TestEventfNilContext(t *testing.T) {
 
 func TestEventMetadata(t *testing.T) {
 	testCases := []struct {
-		desc     string
-		message  string
-		params   []interface{}
-		expected map[string]interface{}
+		desc            string
+		message         string
+		params          []interface{}
+		expected        map[string]interface{}
+		expectedMessage string
 	}{
 		{
-			desc:     "Message with no params",
-			message:  "test",
-			params:   nil,
-			expected: nil,
+			desc:            "Message with no params",
+			message:         "test",
+			params:          nil,
+			expected:        nil,
+			expectedMessage: "test",
 		},
 		{
-			desc:     "Message with no metadata",
-			message:  "test %d",
-			params:   []interface{}{43},
-			expected: nil,
+			desc:            "Message with no metadata",
+			message:         "test %d",
+			params:          []interface{}{43},
+			expected:        nil,
+			expectedMessage: "test 43",
 		},
 		{
 			desc:    "Message with string metadata",
@@ -48,6 +51,7 @@ func TestEventMetadata(t *testing.T) {
 			expected: map[string]interface{}{
 				"foo": "bar",
 			},
+			expectedMessage: "test",
 		},
 		{
 			desc:    "Message with interface metadata",
@@ -60,6 +64,7 @@ func TestEventMetadata(t *testing.T) {
 			expected: map[string]interface{}{
 				"foo": 42,
 			},
+			expectedMessage: "test",
 		},
 		{
 			desc:    "map as format arg with metadata",
@@ -75,6 +80,7 @@ func TestEventMetadata(t *testing.T) {
 			expected: map[string]interface{}{
 				"foo": "foo",
 			},
+			expectedMessage: "foo: map[bar:bar]",
 		},
 		{
 			desc:    "Message with special error case",
@@ -83,6 +89,7 @@ func TestEventMetadata(t *testing.T) {
 			expected: map[string]interface{}{
 				"error": assert.AnError,
 			},
+			expectedMessage: "test",
 		},
 		{
 			desc:    "Message with special error case and metadata",
@@ -94,6 +101,7 @@ func TestEventMetadata(t *testing.T) {
 				"error": assert.AnError,
 				"foo":   "bar",
 			},
+			expectedMessage: "test",
 		},
 		{
 			desc:    "Message with error param and metadata",
@@ -104,12 +112,21 @@ func TestEventMetadata(t *testing.T) {
 			expected: map[string]interface{}{
 				"foo": "bar",
 			},
+			expectedMessage: "eaten by a grue: assert.AnError general error for testing",
+		},
+		{
+			desc:            "Message with metadata nil explicitly",
+			message:         "Foo %s",
+			params:          []interface{}{"bar", nil, nil},
+			expected:        nil,
+			expectedMessage: "Foo bar",
 		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			e := Eventf(ErrorSeverity, nil, tC.message, tC.params...)
 			assert.EqualValues(t, tC.expected, e.Metadata)
+			assert.Equal(t, tC.expectedMessage, e.Message)
 		})
 	}
 }
