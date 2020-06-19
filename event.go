@@ -44,11 +44,12 @@ type logMetadataProvider interface {
 
 // An Event is a discrete logging event
 type Event struct {
-	Context   context.Context `json:"-"`
-	Id        string          `json:"id"`
-	Timestamp time.Time       `json:"timestamp"`
-	Severity  Severity        `json:"severity"`
-	Message   string          `json:"message"`
+	Context         context.Context `json:"-"`
+	Id              string          `json:"id"`
+	Timestamp       time.Time       `json:"timestamp"`
+	Severity        Severity        `json:"severity"`
+	Message         string          `json:"message"`
+	OriginalMessage string          `json:"-"`
 	// Metadata are structured key-value pairs which describe the event.
 	Metadata map[string]interface{} `json:"meta,omitempty"`
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
@@ -64,6 +65,7 @@ func (e Event) String() string {
 // Eventf constructs an event from the given message string and formatting operands. Optionally, event metadata
 // (map[string]interface{}, or map[string]string) can be provided as a final argument.
 func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}) Event {
+	originalMessage := msg
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -98,11 +100,13 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 			extraParamCount = len(params)
 		}
 
-		// Take only the unaccounted for params as metadata params (error, metadata map or both)
-		metaParams := params[len(params)-extraParamCount:]
-		if len(metaParams) > 0 {
-			metadata = mergeMetadata(metadata, metadataFromParams(metaParams))
-			metadata = mergeMetadata(metadata, errorDataFromParams(metaParams))
+		// Attempt to pull metadata and errors from any params.
+		// This means that we'll still extract errors and metadata, even if it
+		// is going to be interpolated into the message. This may result in some
+		// duplication, but always gives us the most structured data possible.
+		if len(params) > 0 {
+			metadata = mergeMetadata(metadata, metadataFromParams(params))
+			metadata = mergeMetadata(metadata, errorDataFromParams(params))
 		}
 
 		// If any of the provided params can be "upgraded" to a logMetadataProvider i.e.
@@ -127,12 +131,13 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	}
 
 	return Event{
-		Context:   ctx,
-		Id:        id.String(),
-		Timestamp: time.Now().UTC(),
-		Severity:  sev,
-		Message:   msg,
-		Metadata:  metadata,
+		Context:         ctx,
+		Id:              id.String(),
+		Timestamp:       time.Now().UTC(),
+		Severity:        sev,
+		Message:         msg,
+		OriginalMessage: originalMessage,
+		Metadata:        metadata,
 	}
 }
 
@@ -150,18 +155,19 @@ func errorDataFromParams(params []interface{}) map[string]interface{} {
 }
 
 func metadataFromParams(params []interface{}) map[string]interface{} {
+	result := map[string]interface{}(nil)
 	for _, param := range params {
 		// This is deprecated, but continue to support a map of strings.
 		if metadataParam, ok := param.(map[string]string); ok {
-			return stringMapToInterfaceMap(metadataParam)
+			result = mergeMetadata(result, stringMapToInterfaceMap(metadataParam))
 		}
 
 		// Check for 'raw' metadata rather than strings.
 		if metadataParam, ok := param.(map[string]interface{}); ok {
-			return metadataParam
+			result = mergeMetadata(result, metadataParam)
 		}
 	}
-	return nil
+	return result
 }
 
 func stringMapToInterfaceMap(m map[string]string) map[string]interface{} {
