@@ -18,6 +18,53 @@ func TestEventfNilContext(t *testing.T) {
 	}
 }
 
+func TestOriginalMessagePreserved(t *testing.T) {
+	testCases := []struct {
+		desc             string
+		message          string
+		params           []interface{}
+		expectedMessage  string
+		expectedOriginal string
+	}{
+		{
+			desc:             "no formatting",
+			message:          "foo",
+			params:           []interface{}{},
+			expectedMessage:  "foo",
+			expectedOriginal: "foo",
+		},
+		{
+			desc:             "no formatting with error",
+			message:          "foo",
+			params:           []interface{}{assert.AnError},
+			expectedMessage:  "foo",
+			expectedOriginal: "foo",
+		},
+		{
+			desc:             "simple format string",
+			message:          "foo: %s",
+			params:           []interface{}{"bar"},
+			expectedMessage:  "foo: bar",
+			expectedOriginal: "foo: %s",
+		},
+		{
+			desc:             "formatting with error",
+			message:          "foo: %v",
+			params:           []interface{}{assert.AnError},
+			expectedMessage:  "foo: assert.AnError general error for testing",
+			expectedOriginal: "foo: %v",
+		},
+	}
+
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			e := Eventf(ErrorSeverity, nil, tC.message, tC.params...)
+			assert.Equal(t, tC.expectedMessage, e.Message)
+			assert.Equal(t, tC.expectedOriginal, e.OriginalMessage)
+		})
+	}
+}
+
 func TestEventMetadata(t *testing.T) {
 	testCases := []struct {
 		desc            string
@@ -78,6 +125,7 @@ func TestEventMetadata(t *testing.T) {
 				},
 			},
 			expected: map[string]interface{}{
+				"bar": "bar",
 				"foo": "foo",
 			},
 			expectedMessage: "foo: map[bar:bar]",
@@ -104,13 +152,23 @@ func TestEventMetadata(t *testing.T) {
 			expectedMessage: "test",
 		},
 		{
+			desc:    "Message with interpolated error",
+			message: "eaten by a grue: %v",
+			params:  []interface{}{assert.AnError},
+			expected: map[string]interface{}{
+				"error": assert.AnError,
+			},
+			expectedMessage: "eaten by a grue: assert.AnError general error for testing",
+		},
+		{
 			desc:    "Message with error param and metadata",
 			message: "eaten by a grue: %v",
 			params: []interface{}{assert.AnError, map[string]interface{}{
 				"foo": "bar",
 			}},
 			expected: map[string]interface{}{
-				"foo": "bar",
+				"foo":   "bar",
+				"error": assert.AnError,
 			},
 			expectedMessage: "eaten by a grue: assert.AnError general error for testing",
 		},
