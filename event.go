@@ -50,6 +50,7 @@ type Event struct {
 	Severity        Severity        `json:"severity"`
 	Message         string          `json:"message"`
 	OriginalMessage string          `json:"-"`
+	Error           WireError       `json:"error"`
 	// Metadata are structured key-value pairs which describe the event.
 	Metadata map[string]interface{} `json:"meta,omitempty"`
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
