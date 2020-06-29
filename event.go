@@ -59,7 +59,12 @@ type Event struct {
 }
 
 func (e Event) String() string {
-	return fmt.Sprintf("[%s] %s %s (error=%v metadata=%v labels=%v id=%s)", e.Error.Error(), e.Timestamp.Format(TimeFormat),
+	errorMessage := ""
+	if e.Error != nil {
+		errorMessage = e.Error.Error()
+	}
+
+	return fmt.Sprintf("[%s] %s %s (error=%v metadata=%v labels=%v id=%s)", errorMessage, e.Timestamp.Format(TimeFormat),
 		e.Severity.String(), e.Message, e.Metadata, e.Labels, e.Id)
 }
 
