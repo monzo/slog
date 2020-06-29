@@ -3,6 +3,7 @@ package slog
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	uuid "github.com/nu7hatch/gouuid"
@@ -55,6 +56,7 @@ type Event struct {
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
 	// indexed.
 	Labels map[string]string `json:"labels,omitempty"`
+	Error  interface{}       `json:"error,omitempty"`
 }
 
 func (e Event) String() string {
@@ -76,6 +78,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	}
 
 	metadata := map[string]interface{}(nil)
+	var errParam interface{}
 	if len(params) > 0 {
 
 		fmtOperands := countFmtOperands(msg)
@@ -107,6 +110,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		if len(params) > 0 {
 			metadata = mergeMetadata(metadata, metadataFromParams(params))
 			metadata = mergeMetadata(metadata, errorDataFromParams(params))
+			errParam = extractFirstErrorParam(params)
 		}
 
 		// If any of the provided params can be "upgraded" to a logMetadataProvider i.e.
@@ -130,7 +134,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		}
 	}
 
-	return Event{
+	event := Event{
 		Context:         ctx,
 		Id:              id.String(),
 		Timestamp:       time.Now().UTC(),
@@ -138,7 +142,25 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		Message:         msg,
 		OriginalMessage: originalMessage,
 		Metadata:        metadata,
+		Error:           errParam,
 	}
+
+	return event
+}
+
+func extractFirstErrorParam(params []interface{}) interface{} {
+	errorInterface := reflect.TypeOf((*error)(nil)).Elem()
+
+	for _, param := range params {
+		if param == nil {
+			continue
+		}
+
+		if reflect.TypeOf(param).Implements(errorInterface) {
+			return param
+		}
+	}
+	return nil
 }
 
 func errorDataFromParams(params []interface{}) map[string]interface{} {

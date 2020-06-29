@@ -1,6 +1,7 @@
 package slog
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -226,6 +227,15 @@ func TestEventMetadata(t *testing.T) {
 			assert.Equal(t, tC.expectedMessage, e.Message)
 		})
 	}
+}
+
+func TestEventfExtractsErrorParam(t *testing.T) {
+
+	err := errors.New("i'm an error")
+	e := Eventf(CriticalSeverity, nil, "foo: %s", err, map[string]interface{}{"foo": 42})
+	assert.Equal(t, "foo: i'm an error", e.Message)
+	assert.Equal(t, map[string]interface{}{"error": err, "foo": 42}, e.Metadata)
+	assert.Equal(t, err, e.Error)
 }
 
 type testLogMetadataProvider map[string]string
