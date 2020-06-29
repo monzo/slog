@@ -55,11 +55,12 @@ type Event struct {
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
 	// indexed.
 	Labels map[string]string `json:"labels,omitempty"`
+	Error  error             `json:"error,omitempty"`
 }
 
 func (e Event) String() string {
-	return fmt.Sprintf("[%s] %s %s (metadata=%v labels=%v id=%s)", e.Timestamp.Format(TimeFormat), e.Severity.String(),
-		e.Message, e.Metadata, e.Labels, e.Id)
+	return fmt.Sprintf("[%s] %s %s (error=%v metadata=%v labels=%v id=%s)", e.Error.Error(), e.Timestamp.Format(TimeFormat),
+		e.Severity.String(), e.Message, e.Metadata, e.Labels, e.Id)
 }
 
 // Eventf constructs an event from the given message string and formatting operands. Optionally, event metadata
@@ -76,6 +77,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	}
 
 	metadata := map[string]interface{}(nil)
+	var errParam error
 	if len(params) > 0 {
 
 		fmtOperands := countFmtOperands(msg)
@@ -106,7 +108,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		// duplication, but always gives us the most structured data possible.
 		if len(params) > 0 {
 			metadata = mergeMetadata(metadata, metadataFromParams(params))
-			metadata = mergeMetadata(metadata, errorDataFromParams(params))
+			errParam = extractFirstErrorParam(params)
 		}
 
 		// If any of the provided params can be "upgraded" to a logMetadataProvider i.e.
@@ -130,7 +132,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		}
 	}
 
-	return Event{
+	event := Event{
 		Context:         ctx,
 		Id:              id.String(),
 		Timestamp:       time.Now().UTC(),
@@ -138,19 +140,21 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		Message:         msg,
 		OriginalMessage: originalMessage,
 		Metadata:        metadata,
+		Error:           errParam,
 	}
+
+	return event
 }
 
-func errorDataFromParams(params []interface{}) map[string]interface{} {
+func extractFirstErrorParam(params []interface{}) error {
 	for _, param := range params {
 		err, ok := param.(error)
 		if !ok {
 			continue
 		}
-		return map[string]interface{}{
-			ErrorMetadataKey: err,
-		}
+		return err
 	}
+
 	return nil
 }
 

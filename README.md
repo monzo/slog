@@ -26,14 +26,6 @@ slog.Info(ctx, "Loading widget", map[string]interface{}{
 slog.Error(ctx, "Failed to load widget", err)
 ```
 
-This is functionally equivalent to:
-
-```go
-slog.Error(ctx, "Failed to load widget", map[string]interface{}{
-    "error": err,
-})
-```
-
 You may also add metadata to errors captured this way:
 
 ```go
@@ -42,16 +34,7 @@ slog.Error(ctx, "Failed to load widget", err, map[string]interface{}{
 })
 ```
 
-Which is equivalent to:
-
-```go
-slog.Error(ctx, "Failed to load widget", map[string]interface{}{
-    "error": err,
-    "user_id": 42,
-})
-```
-
-If an error is supplied, it will override any error key that is part of the metadata map.
+Slog will pick up the first `error` it finds in the metadata and make it available in `event.Error`.
 
 ### Other uses
 
