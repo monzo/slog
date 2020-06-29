@@ -1,7 +1,6 @@
 package slog
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,6 +72,7 @@ func TestEventMetadata(t *testing.T) {
 		params          []interface{}
 		expected        map[string]interface{}
 		expectedMessage string
+		expectedError   error
 	}{
 		{
 			desc:            "Message with no params",
@@ -80,6 +80,7 @@ func TestEventMetadata(t *testing.T) {
 			params:          nil,
 			expected:        nil,
 			expectedMessage: "test",
+			expectedError:   nil,
 		},
 		{
 			desc:            "Message with no metadata",
@@ -87,6 +88,7 @@ func TestEventMetadata(t *testing.T) {
 			params:          []interface{}{43},
 			expected:        nil,
 			expectedMessage: "test 43",
+			expectedError:   nil,
 		},
 		{
 			desc:    "Message with string metadata",
@@ -100,6 +102,7 @@ func TestEventMetadata(t *testing.T) {
 				"foo": "bar",
 			},
 			expectedMessage: "test",
+			expectedError:   nil,
 		},
 		{
 			desc:    "Message with interface metadata",
@@ -113,6 +116,7 @@ func TestEventMetadata(t *testing.T) {
 				"foo": 42,
 			},
 			expectedMessage: "test",
+			expectedError:   nil,
 		},
 		{
 			desc:    "map as format arg with metadata",
@@ -130,15 +134,15 @@ func TestEventMetadata(t *testing.T) {
 				"foo": "foo",
 			},
 			expectedMessage: "foo: map[bar:bar]",
+			expectedError:   nil,
 		},
 		{
-			desc:    "Message with special error case",
-			message: "test",
-			params:  []interface{}{assert.AnError},
-			expected: map[string]interface{}{
-				"error": assert.AnError,
-			},
+			desc:            "Message with special error case",
+			message:         "test",
+			params:          []interface{}{assert.AnError},
+			expected:        map[string]interface{}(nil),
 			expectedMessage: "test",
+			expectedError:   assert.AnError,
 		},
 		{
 			desc:    "Message with special error case and metadata",
@@ -147,19 +151,18 @@ func TestEventMetadata(t *testing.T) {
 				"foo": "bar",
 			}},
 			expected: map[string]interface{}{
-				"error": assert.AnError,
-				"foo":   "bar",
+				"foo": "bar",
 			},
 			expectedMessage: "test",
+			expectedError:   assert.AnError,
 		},
 		{
-			desc:    "Message with interpolated error",
-			message: "eaten by a grue: %v",
-			params:  []interface{}{assert.AnError},
-			expected: map[string]interface{}{
-				"error": assert.AnError,
-			},
+			desc:            "Message with interpolated error",
+			message:         "eaten by a grue: %v",
+			params:          []interface{}{assert.AnError},
+			expected:        map[string]interface{}(nil),
 			expectedMessage: "eaten by a grue: assert.AnError general error for testing",
+			expectedError:   assert.AnError,
 		},
 		{
 			desc:    "Message with error param and metadata",
@@ -168,10 +171,10 @@ func TestEventMetadata(t *testing.T) {
 				"foo": "bar",
 			}},
 			expected: map[string]interface{}{
-				"foo":   "bar",
-				"error": assert.AnError,
+				"foo": "bar",
 			},
 			expectedMessage: "eaten by a grue: assert.AnError general error for testing",
+			expectedError:   assert.AnError,
 		},
 		{
 			desc:            "Message with metadata nil explicitly",
@@ -179,6 +182,7 @@ func TestEventMetadata(t *testing.T) {
 			params:          []interface{}{"bar", nil, nil},
 			expected:        nil,
 			expectedMessage: "Foo bar",
+			expectedError:   nil,
 		},
 		{
 			desc:            "Invalid: too many format params",
@@ -186,6 +190,7 @@ func TestEventMetadata(t *testing.T) {
 			params:          []interface{}{"bar"},
 			expected:        nil,
 			expectedMessage: "Foo bar %!s(MISSING)",
+			expectedError:   nil,
 		},
 		{
 			desc:    "Invalid: too many format params with metadata",
@@ -197,15 +202,15 @@ func TestEventMetadata(t *testing.T) {
 				"meta": "data",
 			},
 			expectedMessage: "Foo bar map[meta:data] %!s(MISSING)",
+			expectedError:   nil,
 		},
 		{
-			desc:    "Invalid: too many format params with error",
-			message: "Foo %s %s %s",
-			params:  []interface{}{"bar", assert.AnError},
-			expected: map[string]interface{}{
-				"error": assert.AnError,
-			},
+			desc:            "Invalid: too many format params with error",
+			message:         "Foo %s %s %s",
+			params:          []interface{}{"bar", assert.AnError},
+			expected:        map[string]interface{}(nil),
 			expectedMessage: "Foo bar assert.AnError general error for testing %!s(MISSING)",
+			expectedError:   assert.AnError,
 		},
 		{
 			desc:    "Invalid: too many format params with error and metadata",
@@ -214,10 +219,10 @@ func TestEventMetadata(t *testing.T) {
 				"meta": "data",
 			}},
 			expected: map[string]interface{}{
-				"error": assert.AnError,
-				"meta":  "data",
+				"meta": "data",
 			},
 			expectedMessage: "Foo bar assert.AnError general error for testing map[meta:data] %!s(MISSING)",
+			expectedError:   assert.AnError,
 		},
 	}
 	for _, tC := range testCases {
@@ -225,17 +230,9 @@ func TestEventMetadata(t *testing.T) {
 			e := Eventf(ErrorSeverity, nil, tC.message, tC.params...)
 			assert.EqualValues(t, tC.expected, e.Metadata)
 			assert.Equal(t, tC.expectedMessage, e.Message)
+			assert.Equal(t, tC.expectedError, e.Error)
 		})
 	}
-}
-
-func TestEventfExtractsErrorParam(t *testing.T) {
-
-	err := errors.New("i'm an error")
-	e := Eventf(CriticalSeverity, nil, "foo: %s", err, map[string]interface{}{"foo": 42})
-	assert.Equal(t, "foo: i'm an error", e.Message)
-	assert.Equal(t, map[string]interface{}{"error": err, "foo": 42}, e.Metadata)
-	assert.Equal(t, err, e.Error)
 }
 
 type testLogMetadataProvider map[string]string
