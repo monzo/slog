@@ -286,6 +286,51 @@ func TestSerializeDeserialize(t *testing.T) {
 	assert.Equal(t, event.Message, undo.Message)
 	assert.Equal(t, event.Metadata, undo.Metadata)
 	assert.Equal(t, event.Labels, undo.Labels)
+
+	// Note: go error types will not serialize by default, so we do not expect
+	// any data here.
+	assert.Equal(t, map[string]interface{}{}, undo.Error)
+}
+
+func TestSerializeDeserializeError(t *testing.T) {
+	type serializableError struct {
+		Message string `json:"message"`
+	}
+
+	event := Event{
+		Context:         context.Background(),
+		Id:              "test",
+		Timestamp:       time.Now(),
+		Severity:        ErrorSeverity,
+		Message:         "foo",
+		OriginalMessage: "foo",
+		Metadata: map[string]interface{}{
+			"string": "value",
+			"number": float64(42),
+		},
+		Labels: map[string]string{
+			"label": "foo",
+		},
+		Error: serializableError{
+			Message: "test",
+		},
+	}
+	out, err := json.Marshal(&event)
+	assert.NoError(t, err)
+
+	var undo Event
+	err = json.Unmarshal(out, &undo)
+	assert.NoError(t, err)
+
+	assert.Equal(t, event.Id, undo.Id)
+	assert.Equal(t, event.Severity, undo.Severity)
+	assert.Equal(t, event.Message, undo.Message)
+	assert.Equal(t, event.Metadata, undo.Metadata)
+	assert.Equal(t, event.Labels, undo.Labels)
+
+	assert.Equal(t, map[string]interface{}{
+		"message": "test",
+	}, undo.Error)
 }
 
 func BenchmarkLogMetadataInterface(b *testing.B) {
