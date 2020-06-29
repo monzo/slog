@@ -1,7 +1,11 @@
 package slog
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -251,6 +255,37 @@ func TestEventfLogMetadataProvider(t *testing.T) {
 		"foo": "bar",
 	}
 	assert.EqualValues(t, expected, e.Metadata)
+}
+
+func TestSerializeDeserialize(t *testing.T) {
+	event := Event{
+		Context:         context.Background(),
+		Id:              "test",
+		Timestamp:       time.Now(),
+		Severity:        ErrorSeverity,
+		Message:         "foo",
+		OriginalMessage: "foo",
+		Metadata: map[string]interface{}{
+			"string": "value",
+			"number": float64(42),
+		},
+		Labels: map[string]string{
+			"label": "foo",
+		},
+		Error: errors.New("an error"),
+	}
+	out, err := json.Marshal(&event)
+	assert.NoError(t, err)
+
+	var undo Event
+	err = json.Unmarshal(out, &undo)
+	assert.NoError(t, err)
+
+	assert.Equal(t, event.Id, undo.Id)
+	assert.Equal(t, event.Severity, undo.Severity)
+	assert.Equal(t, event.Message, undo.Message)
+	assert.Equal(t, event.Metadata, undo.Metadata)
+	assert.Equal(t, event.Labels, undo.Labels)
 }
 
 func BenchmarkLogMetadataInterface(b *testing.B) {

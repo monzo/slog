@@ -55,13 +55,15 @@ type Event struct {
 	// Labels, like Metadata, are key-value pairs which describe the event. Unlike Metadata, these are intended to be
 	// indexed.
 	Labels map[string]string `json:"labels,omitempty"`
-	Error  error             `json:"error,omitempty"`
+	Error  interface{}       `json:"error,omitempty"`
 }
 
 func (e Event) String() string {
 	errorMessage := ""
 	if e.Error != nil {
-		errorMessage = e.Error.Error()
+		if err, ok := e.Error.(error); ok {
+			errorMessage = err.Error()
+		}
 	}
 
 	return fmt.Sprintf("[%s] %s %s (error=%v metadata=%v labels=%v id=%s)", errorMessage, e.Timestamp.Format(TimeFormat),
