@@ -84,6 +84,7 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	}
 
 	metadata := map[string]interface{}(nil)
+
 	var errParam error
 	if len(params) > 0 {
 
@@ -137,6 +138,12 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 			nonMetaParams := params[0:endIndex]
 			msg = fmt.Sprintf(msg, nonMetaParams...)
 		}
+	}
+
+	// if there is any metadata stored in the context, extract it and add to the metadata map
+	// any existing keys will be preserved in the metadata map
+	if contextMetadata := ParamsFromContext(ctx); len(contextMetadata) > 0 {
+		metadata = mergeMetadata(metadata, stringMapToInterfaceMap(contextMetadata))
 	}
 
 	event := Event{
