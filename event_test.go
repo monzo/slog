@@ -73,6 +73,7 @@ func TestEventMetadata(t *testing.T) {
 	testCases := []struct {
 		desc            string
 		message         string
+		contextParams   map[string]string
 		params          []interface{}
 		expected        map[string]interface{}
 		expectedMessage string
@@ -228,10 +229,37 @@ func TestEventMetadata(t *testing.T) {
 			expectedMessage: "Foo bar assert.AnError general error for testing map[meta:data] %!s(MISSING)",
 			expectedError:   assert.AnError,
 		},
+		{
+			desc:    "Metadata from context",
+			message: "Hello",
+			contextParams: map[string]string{
+				"foo": "bar",
+			},
+			expected: map[string]interface{}{
+				"foo": "bar",
+			},
+			expectedMessage: "Hello",
+		},
+		{
+			desc:    "Metadata from context, passed params override",
+			message: "Hello",
+			contextParams: map[string]string{
+				"foo": "bar", "bar": "baz",
+			},
+			params: []interface{}{map[string]string{"bar": "foo"}},
+			expected: map[string]interface{}{
+				"foo": "bar", "bar": "foo",
+			},
+			expectedMessage: "Hello",
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			e := Eventf(ErrorSeverity, nil, tC.message, tC.params...)
+			ctx := context.Background()
+			if tC.contextParams != nil {
+				ctx = WithParams(ctx, tC.contextParams)
+			}
+			e := Eventf(ErrorSeverity, ctx, tC.message, tC.params...)
 			assert.EqualValues(t, tC.expected, e.Metadata)
 			assert.Equal(t, tC.expectedMessage, e.Message)
 			assert.Equal(t, tC.expectedError, e.Error)
