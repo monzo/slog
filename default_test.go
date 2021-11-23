@@ -1,0 +1,136 @@
+package slog
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestDefaultLogger(t *testing.T) {
+	logger := &testLogLogger{}
+	oldLogger := DefaultLogger()
+	SetDefaultLogger(logger)
+	defer SetDefaultLogger(oldLogger)
+
+	Trace(context.Background(), "Important trace message", "foo")
+	Debug(context.Background(), "Important debug message", "foo")
+	Info(context.Background(), "Important info message", "foo")
+	Warn(context.Background(), "Important warn message", "foo")
+	Error(context.Background(), "Important error message", "foo")
+	Critical(context.Background(), "Important critical message", "foo")
+
+	require.Equal(t, 6, len(logger.events))
+	assert.Equal(t, TraceSeverity, logger.events[0].Severity)
+	assert.Equal(t, DebugSeverity, logger.events[1].Severity)
+	assert.Equal(t, InfoSeverity, logger.events[2].Severity)
+	assert.Equal(t, WarnSeverity, logger.events[3].Severity)
+	assert.Equal(t, ErrorSeverity, logger.events[4].Severity)
+	assert.Equal(t, CriticalSeverity, logger.events[5].Severity)
+}
+
+func TestDefaultLoggerWithLeveledLogger(t *testing.T) {
+	logger := &testLogLeveledLogger{t: t}
+	oldLogger := DefaultLogger()
+	SetDefaultLogger(logger)
+	defer SetDefaultLogger(oldLogger)
+
+	Trace(context.Background(), "Important trace message", "foo")
+	Debug(context.Background(), "Important debug message", "foo")
+	Info(context.Background(), "Important info message", "foo")
+	Warn(context.Background(), "Important warn message", "foo")
+	Error(context.Background(), "Important error message", "foo")
+	Critical(context.Background(), "Important critical message", "foo")
+
+	require.Equal(t, 6, len(logger.items))
+
+	assert.Equal(t, TraceSeverity, logger.items[0].Severity)
+	assert.Equal(t, "Important trace message", logger.items[0].OriginalMessage)
+
+	assert.Equal(t, DebugSeverity, logger.items[1].Severity)
+	assert.Equal(t, "Important debug message", logger.items[1].OriginalMessage)
+
+	assert.Equal(t, InfoSeverity, logger.items[2].Severity)
+	assert.Equal(t, "Important info message", logger.items[2].OriginalMessage)
+
+	assert.Equal(t, WarnSeverity, logger.items[3].Severity)
+	assert.Equal(t, "Important warn message", logger.items[3].OriginalMessage)
+
+	assert.Equal(t, ErrorSeverity, logger.items[4].Severity)
+	assert.Equal(t, "Important error message", logger.items[4].OriginalMessage)
+
+	assert.Equal(t, CriticalSeverity, logger.items[5].Severity)
+	assert.Equal(t, "Important critical message", logger.items[5].OriginalMessage)
+}
+
+func TestNilDefaultLogger(t *testing.T) {
+	oldLogger := DefaultLogger()
+	SetDefaultLogger(nil)
+	defer SetDefaultLogger(oldLogger)
+
+	require.Nil(t, DefaultLogger())
+
+	Trace(context.Background(), "Important trace message", "foo")
+	Debug(context.Background(), "Important debug message", "foo")
+	Info(context.Background(), "Important info message", "foo")
+	Warn(context.Background(), "Important warn message", "foo")
+	Error(context.Background(), "Important error message", "foo")
+	Critical(context.Background(), "Important critical message", "foo")
+}
+
+// testLogLeveledLogger implements the Logger interface
+type testLogLogger struct {
+	events []Event
+}
+
+func (l *testLogLogger) Log(evs ...Event) {
+	l.events = append(l.events, evs...)
+}
+
+func (l *testLogLogger) Flush() error {
+	return nil
+}
+
+type logItem struct {
+	Severity        Severity
+	OriginalMessage string
+}
+
+// testLogLeveledLogger implements the Logger and LeveledLogger interfaces
+type testLogLeveledLogger struct {
+	t     *testing.T
+	items []logItem
+}
+
+func (l *testLogLeveledLogger) Critical(ctx context.Context, msg string, params ...interface{}) {
+	l.items = append(l.items, logItem{Severity: CriticalSeverity, OriginalMessage: msg})
+}
+
+func (l *testLogLeveledLogger) Error(ctx context.Context, msg string, params ...interface{}) {
+	l.items = append(l.items, logItem{Severity: ErrorSeverity, OriginalMessage: msg})
+}
+
+func (l *testLogLeveledLogger) Warn(ctx context.Context, msg string, params ...interface{}) {
+	l.items = append(l.items, logItem{Severity: WarnSeverity, OriginalMessage: msg})
+}
+
+func (l *testLogLeveledLogger) Info(ctx context.Context, msg string, params ...interface{}) {
+	l.items = append(l.items, logItem{Severity: InfoSeverity, OriginalMessage: msg})
+}
+
+func (l *testLogLeveledLogger) Debug(ctx context.Context, msg string, params ...interface{}) {
+	l.items = append(l.items, logItem{Severity: DebugSeverity, OriginalMessage: msg})
+}
+
+func (l *testLogLeveledLogger) Trace(ctx context.Context, msg string, params ...interface{}) {
+	l.items = append(l.items, logItem{Severity: TraceSeverity, OriginalMessage: msg})
+}
+
+func (l *testLogLeveledLogger) Log(evs ...Event) {
+	l.t.Fail() // We expect this method to not be called
+}
+
+func (l *testLogLeveledLogger) Flush() error {
+	return nil
+}
