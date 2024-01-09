@@ -239,6 +239,22 @@ func TestEventMetadata(t *testing.T) {
 	}
 }
 
+func Test_InlineParamsTakePrecedenceOverContextParams(t *testing.T) {
+	ctx := WithParams(context.Background(), map[string]string{
+		"key1": "value_to_be_shadowed",
+		"key2": "other_value",
+	})
+
+	e := Eventf(ErrorSeverity, ctx, "test message", map[string]string{
+		"key1": "value",
+	})
+
+	assert.Equal(t, map[string]any{
+		"key1": "value",
+		"key2": "other_value",
+	}, e.Metadata)
+}
+
 type testLogMetadataProvider map[string]string
 
 func (p testLogMetadataProvider) LogMetadata() map[string]string {
