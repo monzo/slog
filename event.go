@@ -84,6 +84,13 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 	}
 
 	metadata := map[string]interface{}(nil)
+
+	// If there are any params stashed in the context, merge them into the metadata
+	// TODO: fix and test precedence with metadata passed in the arguments.
+	if ctxMetadata := Params(ctx); len(ctxMetadata) > 0 {
+		metadata = mergeMetadata(metadata, stringMapToInterfaceMap(ctxMetadata))
+	}
+
 	var errParam error
 	if len(params) > 0 {
 
