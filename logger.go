@@ -18,6 +18,12 @@ type LeveledLogger interface {
 	Trace(ctx context.Context, msg string, params ...interface{})
 }
 
+// FromErrorLogger is a logger which logs errors.
+// The severity of the log is inferred from the error.
+type FromErrorLogger interface {
+	FromError(ctx context.Context, msg string, err error, params ...interface{})
+}
+
 // SeverityLogger is a logger which can log at different severity levels.
 type SeverityLogger struct {
 	Logger

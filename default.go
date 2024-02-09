@@ -112,3 +112,18 @@ func Trace(ctx context.Context, msg string, params ...interface{}) {
 		}
 	}
 }
+
+// FromError constructs a logging event with error severity by default.
+// If the default Logger implements the FromErrorLogger interface, we
+// forward the requests via the FromError interface function. In this
+// case the severity will be inferred from the error.
+func FromError(ctx context.Context, msg string, err error, params ...interface{}) {
+	if l := DefaultLogger(); l != nil {
+		params = []interface{}{err, params}
+		if ll, ok := l.(FromErrorLogger); ok {
+			ll.FromError(ctx, msg, err, params...)
+		} else {
+			l.Log(Eventf(ErrorSeverity, ctx, msg, params...))
+		}
+	}
+}
