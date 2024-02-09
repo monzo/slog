@@ -96,7 +96,7 @@ func TestNilDefaultLogger(t *testing.T) {
 	Warn(context.Background(), "Important warn message", "foo")
 	Error(context.Background(), "Important error message", "foo")
 	Critical(context.Background(), "Important critical message", "foo")
-	FromError(context.Background(), "Important critical message", context.Canceled, "foo")
+	FromError(context.Background(), "Important from error message", context.Canceled, "foo")
 }
 
 // testLogLeveledLogger implements the Logger interface
