@@ -2,6 +2,7 @@ package slog
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -64,6 +65,24 @@ func TestDefaultLoggerWithLeveledLogger(t *testing.T) {
 	assert.Equal(t, "Important critical message", logger.items[5].OriginalMessage)
 }
 
+func TestDefaultLoggerWithFromErrorLogger(t *testing.T) {
+	logger := &testLogFromErrorLogger{t: t}
+	oldLogger := DefaultLogger()
+	SetDefaultLogger(logger)
+	defer SetDefaultLogger(oldLogger)
+
+	FromError(context.Background(), "This error ends up as debug", context.Canceled, "foo")
+	FromError(context.Background(), "This error ends up as error", context.DeadlineExceeded, "foo")
+
+	require.Equal(t, 2, len(logger.items))
+
+	assert.Equal(t, DebugSeverity, logger.items[0].Severity)
+	assert.Equal(t, "This error ends up as debug", logger.items[0].OriginalMessage)
+
+	assert.Equal(t, ErrorSeverity, logger.items[1].Severity)
+	assert.Equal(t, "This error ends up as error", logger.items[1].OriginalMessage)
+}
+
 func TestNilDefaultLogger(t *testing.T) {
 	oldLogger := DefaultLogger()
 	SetDefaultLogger(nil)
@@ -77,6 +96,7 @@ func TestNilDefaultLogger(t *testing.T) {
 	Warn(context.Background(), "Important warn message", "foo")
 	Error(context.Background(), "Important error message", "foo")
 	Critical(context.Background(), "Important critical message", "foo")
+	FromError(context.Background(), "Important critical message", context.Canceled, "foo")
 }
 
 // testLogLeveledLogger implements the Logger interface
@@ -132,5 +152,27 @@ func (l *testLogLeveledLogger) Log(evs ...Event) {
 }
 
 func (l *testLogLeveledLogger) Flush() error {
+	return nil
+}
+
+// testLogFromErrorLogger implements the Logger and FromErrorLogger interfaces
+type testLogFromErrorLogger struct {
+	t     *testing.T
+	items []logItem
+}
+
+func (l *testLogFromErrorLogger) FromError(ctx context.Context, msg string, err error, params ...interface{}) {
+	if errors.Is(err, context.Canceled) {
+		l.items = append(l.items, logItem{Severity: DebugSeverity, OriginalMessage: msg})
+		return
+	}
+	l.items = append(l.items, logItem{Severity: ErrorSeverity, OriginalMessage: msg})
+}
+
+func (l *testLogFromErrorLogger) Log(evs ...Event) {
+	l.t.Fail() // We expect this method to not be called
+}
+
+func (l *testLogFromErrorLogger) Flush() error {
 	return nil
 }
