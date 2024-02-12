@@ -78,9 +78,11 @@ func TestDefaultLoggerWithFromErrorLogger(t *testing.T) {
 
 	assert.Equal(t, DebugSeverity, logger.items[0].Severity)
 	assert.Equal(t, "This error ends up as debug", logger.items[0].OriginalMessage)
+	assert.Equal(t, []interface{}{context.Canceled, "foo"}, logger.items[0].Params)
 
 	assert.Equal(t, ErrorSeverity, logger.items[1].Severity)
 	assert.Equal(t, "This error ends up as error", logger.items[1].OriginalMessage)
+	assert.Equal(t, []interface{}{context.DeadlineExceeded, "foo"}, logger.items[1].Params)
 }
 
 func TestNilDefaultLogger(t *testing.T) {
@@ -115,6 +117,7 @@ func (l *testLogLogger) Flush() error {
 type logItem struct {
 	Severity        Severity
 	OriginalMessage string
+	Params          []interface{}
 }
 
 // testLogLeveledLogger implements the Logger and LeveledLogger interfaces
@@ -124,27 +127,27 @@ type testLogLeveledLogger struct {
 }
 
 func (l *testLogLeveledLogger) Critical(ctx context.Context, msg string, params ...interface{}) {
-	l.items = append(l.items, logItem{Severity: CriticalSeverity, OriginalMessage: msg})
+	l.items = append(l.items, logItem{Severity: CriticalSeverity, OriginalMessage: msg, Params: params})
 }
 
 func (l *testLogLeveledLogger) Error(ctx context.Context, msg string, params ...interface{}) {
-	l.items = append(l.items, logItem{Severity: ErrorSeverity, OriginalMessage: msg})
+	l.items = append(l.items, logItem{Severity: ErrorSeverity, OriginalMessage: msg, Params: params})
 }
 
 func (l *testLogLeveledLogger) Warn(ctx context.Context, msg string, params ...interface{}) {
-	l.items = append(l.items, logItem{Severity: WarnSeverity, OriginalMessage: msg})
+	l.items = append(l.items, logItem{Severity: WarnSeverity, OriginalMessage: msg, Params: params})
 }
 
 func (l *testLogLeveledLogger) Info(ctx context.Context, msg string, params ...interface{}) {
-	l.items = append(l.items, logItem{Severity: InfoSeverity, OriginalMessage: msg})
+	l.items = append(l.items, logItem{Severity: InfoSeverity, OriginalMessage: msg, Params: params})
 }
 
 func (l *testLogLeveledLogger) Debug(ctx context.Context, msg string, params ...interface{}) {
-	l.items = append(l.items, logItem{Severity: DebugSeverity, OriginalMessage: msg})
+	l.items = append(l.items, logItem{Severity: DebugSeverity, OriginalMessage: msg, Params: params})
 }
 
 func (l *testLogLeveledLogger) Trace(ctx context.Context, msg string, params ...interface{}) {
-	l.items = append(l.items, logItem{Severity: TraceSeverity, OriginalMessage: msg})
+	l.items = append(l.items, logItem{Severity: TraceSeverity, OriginalMessage: msg, Params: params})
 }
 
 func (l *testLogLeveledLogger) Log(evs ...Event) {
@@ -163,10 +166,10 @@ type testLogFromErrorLogger struct {
 
 func (l *testLogFromErrorLogger) FromError(ctx context.Context, msg string, err error, params ...interface{}) {
 	if errors.Is(err, context.Canceled) {
-		l.items = append(l.items, logItem{Severity: DebugSeverity, OriginalMessage: msg})
+		l.items = append(l.items, logItem{Severity: DebugSeverity, OriginalMessage: msg, Params: params})
 		return
 	}
-	l.items = append(l.items, logItem{Severity: ErrorSeverity, OriginalMessage: msg})
+	l.items = append(l.items, logItem{Severity: ErrorSeverity, OriginalMessage: msg, Params: params})
 }
 
 func (l *testLogFromErrorLogger) Log(evs ...Event) {

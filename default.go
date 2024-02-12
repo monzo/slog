@@ -119,7 +119,7 @@ func Trace(ctx context.Context, msg string, params ...interface{}) {
 // case the severity will be inferred from the error.
 func FromError(ctx context.Context, msg string, err error, params ...interface{}) {
 	if l := DefaultLogger(); l != nil {
-		params = []interface{}{err, params}
+		params = append([]interface{}{err}, params...)
 		if ll, ok := l.(FromErrorLogger); ok {
 			ll.FromError(ctx, msg, err, params...)
 		} else {
