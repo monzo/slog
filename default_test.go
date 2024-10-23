@@ -10,7 +10,7 @@ import (
 )
 
 func TestDefaultLogger(t *testing.T) {
-	logger := &testLogLogger{}
+	logger := NewInMemoryLogger()
 	oldLogger := DefaultLogger()
 	SetDefaultLogger(logger)
 	defer SetDefaultLogger(oldLogger)
@@ -22,13 +22,14 @@ func TestDefaultLogger(t *testing.T) {
 	Error(context.Background(), "Important error message", "foo")
 	Critical(context.Background(), "Important critical message", "foo")
 
-	require.Equal(t, 6, len(logger.events))
-	assert.Equal(t, TraceSeverity, logger.events[0].Severity)
-	assert.Equal(t, DebugSeverity, logger.events[1].Severity)
-	assert.Equal(t, InfoSeverity, logger.events[2].Severity)
-	assert.Equal(t, WarnSeverity, logger.events[3].Severity)
-	assert.Equal(t, ErrorSeverity, logger.events[4].Severity)
-	assert.Equal(t, CriticalSeverity, logger.events[5].Severity)
+	events := logger.Events()
+	require.Equal(t, 6, len(events))
+	assert.Equal(t, TraceSeverity, events[0].Severity)
+	assert.Equal(t, DebugSeverity, events[1].Severity)
+	assert.Equal(t, InfoSeverity, events[2].Severity)
+	assert.Equal(t, WarnSeverity, events[3].Severity)
+	assert.Equal(t, ErrorSeverity, events[4].Severity)
+	assert.Equal(t, CriticalSeverity, events[5].Severity)
 }
 
 func TestDefaultLoggerWithLeveledLogger(t *testing.T) {
@@ -97,19 +98,6 @@ func TestNilDefaultLogger(t *testing.T) {
 	Error(context.Background(), "Important error message", "foo")
 	Critical(context.Background(), "Important critical message", "foo")
 	FromError(context.Background(), "Important from error message", context.Canceled, "foo")
-}
-
-// testLogLeveledLogger implements the Logger interface
-type testLogLogger struct {
-	events []Event
-}
-
-func (l *testLogLogger) Log(evs ...Event) {
-	l.events = append(l.events, evs...)
-}
-
-func (l *testLogLogger) Flush() error {
-	return nil
 }
 
 type logItem struct {
