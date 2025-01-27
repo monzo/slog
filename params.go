@@ -2,7 +2,6 @@ package slog
 
 import (
 	"context"
-	"maps"
 	"sync"
 	"testing"
 )
@@ -76,7 +75,7 @@ func (n *paramNode) params() params {
 		// mutate it without impacting other callers (and potentially causing panics if
 		// the map is mutated concurrently). This trades off a small amount of performance
 		// and memory usage for safety.
-		return maps.Clone(n.mergedParams)
+		return cloneStringMap(n.mergedParams)
 	}
 
 	// NOTE: we could propagate length hints down the parent chain in order to pass a
@@ -89,7 +88,7 @@ func (n *paramNode) params() params {
 	// Cache the result for future requests
 	n.mergedParams = result
 
-	return maps.Clone(result) // As above, we return a copy to allow safe mutation
+	return cloneStringMap(result) // As above, we return a copy to allow safe mutation
 }
 
 func (n *paramNode) collectAllParams(dst params) {
