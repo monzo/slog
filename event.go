@@ -139,6 +139,13 @@ func Eventf(sev Severity, ctx context.Context, msg string, params ...interface{}
 		}
 	}
 
+	// If there are any metadata params stashed in the context, merge them into the
+	// metadata. We do this after processing all params passed directly to Eventf so
+	// that they take precedence.
+	if ctxMetadata := Params(ctx); len(ctxMetadata) > 0 {
+		metadata = mergeMetadata(metadata, stringMapToInterfaceMap(ctxMetadata))
+	}
+
 	event := Event{
 		Context:         ctx,
 		Id:              id.String(),
