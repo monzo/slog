@@ -249,7 +249,7 @@ func Test_InlineParamsTakePrecedenceOverContextParams(t *testing.T) {
 		"key1": "value",
 	})
 
-	assert.Equal(t, map[string]any{
+	assert.Equal(t, map[string]interface{}{
 		"key1": "value",
 		"key2": "other_value",
 	}, e.Metadata)

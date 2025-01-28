@@ -38,7 +38,7 @@ func WithParam(ctx context.Context, key, value string) context.Context {
 
 // Params returns all parameters stored in the given context using WithParams. This
 // function is intended to be used by libraries _other_ than slog that want access to the
-// set of parameters (i.e. `monzo/terrors` functions).
+// set of parameters (e.g. `monzo/terrors` functions).
 //
 // The return value is guaranteed to be non-nil and can be safely mutated by the caller.
 func Params(ctx context.Context) map[string]string {
@@ -57,7 +57,8 @@ type paramNode struct {
 	// parameters already contained in Parent and then merging that with ChildParams.
 	//
 	// NOTE: this collection happens lazily when the params are queried, at which point
-	// we also cache the result in mergedParams to avoid repeating this work.
+	// we also cache the result in mergedParams to avoid repeating this work. We don't
+	// do this upfront to avoid unnecessary work if the params are never queried.
 	Parent      context.Context
 	ChildParams params
 
