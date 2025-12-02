@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"testing"
+
+	"github.com/benbjohnson/immutable"
 )
 
 // WithParams returns a copy of the parent context containing the given log parameters.
@@ -27,13 +29,13 @@ import (
 func WithParams(parent context.Context, params map[string]string) context.Context {
 	return context.WithValue(parent, contextKeyParamNode{}, &paramNode{
 		Parent:      parent,
-		ChildParams: params,
+		ChildParams: builtinMapToParams(params),
 	})
 }
 
 // WithParam is shorthand for calling WithParams with a single key-value pair.
 func WithParam(ctx context.Context, key, value string) context.Context {
-	return WithParams(ctx, params{key: value})
+	return WithParams(ctx, map[string]string{key: value})
 }
 
 // Params returns all parameters stored in the given context using WithParams. This
@@ -46,10 +48,24 @@ func Params(ctx context.Context) map[string]string {
 	if paramNode == nil {
 		return map[string]string{}
 	}
-	return paramNode.params()
+	return paramsToBuiltinMap(paramNode.params())
 }
 
-type params map[string]string
+func paramsToBuiltinMap(p params) map[string]string {
+	m := map[string]string{}
+
+	it := p.Iterator()
+	for !it.Done() {
+		k, v, _ := it.Next()
+		m[k] = v
+	}
+	return m
+}
+func builtinMapToParams(m map[string]string) params {
+	return immutable.NewMapOf(nil, m)
+}
+
+type params = *immutable.Map[string, string]
 
 type paramNode struct {
 	// Parent and ChildParams are the original values passed to slog.WithParams. The
@@ -76,36 +92,39 @@ func (n *paramNode) params() params {
 		// mutate it without impacting other callers (and potentially causing panics if
 		// the map is mutated concurrently). This trades off a small amount of performance
 		// and memory usage for safety.
-		return cloneStringMap(n.mergedParams)
+		return n.mergedParams
 	}
 
 	// NOTE: we could propagate length hints down the parent chain in order to pass a
 	// more accurate capacity hint here, but the minimum size of a map already takes up
 	// to 8 K/V pairs without needing to allocate more buckets so in practice it doesn't
 	// matter much anyway.
-	result := make(params, len(n.ChildParams))
-	n.collectAllParamsAssumingReadLock(result)
+	p := immutable.NewMapBuilder[string, string](nil)
+	n.collectAllParamsAssumingReadLock(p)
 
 	// Cache the result for future requests
-	n.mergedParams = result
+	n.mergedParams = p.Map()
 
-	return cloneStringMap(result) // As above, we return a copy to allow safe mutation
+	return n.mergedParams // As above, we return a copy to allow safe mutation
 }
 
-func (n *paramNode) collectAllParams(dst params) {
+func (n *paramNode) collectAllParams(dst *immutable.MapBuilder[string, string]) {
 	n.mergedParamsMtx.RLock()
 	defer n.mergedParamsMtx.RUnlock()
 	n.collectAllParamsAssumingReadLock(dst)
 }
 
-func (n *paramNode) collectAllParamsAssumingReadLock(res params) {
+func (n *paramNode) collectAllParamsAssumingReadLock(res *immutable.MapBuilder[string, string]) {
 	// If we've already cached the flattened params for this node, we can accumulate from
 	// those directly, avoiding potentially needing to traverse the parent chain to
 	// collect all params
 	if n.mergedParams != nil {
-		for k, v := range n.mergedParams {
-			res[k] = v
+		it := n.mergedParams.Iterator()
+		for !it.Done() {
+			k, v, _ := it.Next()
+			res.Set(k, v)
 		}
+
 		return
 	}
 
@@ -116,8 +135,10 @@ func (n *paramNode) collectAllParamsAssumingReadLock(res params) {
 
 	// Then merge the child params, overwriting any existing bindings for a given
 	// parameter key so that more recent calls to WithParams take precedence.
-	for k, v := range n.ChildParams {
-		res[k] = v
+	it := n.ChildParams.Iterator()
+	for !it.Done() {
+		k, v, _ := it.Next()
+		res.Set(k, v)
 	}
 
 	// NOTE: here we intentionally _don't_ cache the result in this paramNode because
