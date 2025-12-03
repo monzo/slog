@@ -24,7 +24,9 @@ import (
 // the new parameters will be merged with the existing set, with newer values taking
 // precedence over older ones.
 //
-// It is not safe to modify the supplied map after passing it to WithParams.
+// We copy the contents of the map into an internal structure here, so while it
+// is safe to modify the map after being passed in, any changes won't be visible
+// to successive slog calls.
 func WithParams(parent context.Context, input map[string]string) context.Context {
 	var p params
 	if node := paramNodeFromContext(parent); node != nil {
@@ -43,7 +45,6 @@ func WithParams(parent context.Context, input map[string]string) context.Context
 
 // WithParam is shorthand for calling WithParams with a single key-value pair.
 func WithParam(ctx context.Context, key, value string) context.Context {
-	// Note: we could skip the map allocation here by updating things directly
 	return WithParams(ctx, map[string]string{key: value})
 }
 
