@@ -2,8 +2,9 @@ package slog
 
 import (
 	"context"
-	"sync"
 	"testing"
+
+	"github.com/benbjohnson/immutable"
 )
 
 // WithParams returns a copy of the parent context containing the given log parameters.
@@ -23,17 +24,28 @@ import (
 // the new parameters will be merged with the existing set, with newer values taking
 // precedence over older ones.
 //
-// It is not safe to modify the supplied map after passing it to WithParams.
-func WithParams(parent context.Context, params map[string]string) context.Context {
+// We copy the contents of the map into an internal structure here, so while it
+// is safe to modify the map after being passed in, any changes won't be visible
+// to successive slog calls.
+func WithParams(parent context.Context, input map[string]string) context.Context {
+	var p params
+	if node := paramNodeFromContext(parent); node != nil {
+		p = node.mergedParams
+	} else {
+		p = immutable.NewMap[string, string](nil)
+	}
+
+	for k, v := range input {
+		p = p.Set(k, v)
+	}
 	return context.WithValue(parent, contextKeyParamNode{}, &paramNode{
-		Parent:      parent,
-		ChildParams: params,
+		mergedParams: p,
 	})
 }
 
 // WithParam is shorthand for calling WithParams with a single key-value pair.
 func WithParam(ctx context.Context, key, value string) context.Context {
-	return WithParams(ctx, params{key: value})
+	return WithParams(ctx, map[string]string{key: value})
 }
 
 // Params returns all parameters stored in the given context using WithParams. This
@@ -46,86 +58,25 @@ func Params(ctx context.Context) map[string]string {
 	if paramNode == nil {
 		return map[string]string{}
 	}
-	return paramNode.params()
+	// As above, we return a copy to allow safe mutation
+	return paramsToBuiltinMap(paramNode.mergedParams)
 }
 
-type params map[string]string
+func paramsToBuiltinMap(p params) map[string]string {
+	m := map[string]string{}
+
+	it := p.Iterator()
+	for !it.Done() {
+		k, v, _ := it.Next()
+		m[k] = v
+	}
+	return m
+}
+
+type params = *immutable.Map[string, string]
 
 type paramNode struct {
-	// Parent and ChildParams are the original values passed to slog.WithParams. The
-	// complete set of parameters for this node are determined by collecting any
-	// parameters already contained in Parent and then merging that with ChildParams.
-	//
-	// NOTE: this collection happens lazily when the params are queried, at which point
-	// we also cache the result in mergedParams to avoid repeating this work. We don't
-	// do this upfront to avoid unnecessary work if the params are never queried.
-	Parent      context.Context
-	ChildParams params
-
-	mergedParams    params
-	mergedParamsMtx sync.RWMutex
-}
-
-func (n *paramNode) params() params {
-	n.mergedParamsMtx.Lock()
-	defer n.mergedParamsMtx.Unlock()
-
-	// If we've already flattened the params, we can return those directly
-	if n.mergedParams != nil {
-		// NOTE: we return a _copy_ of the cached map here to allow the caller to safely
-		// mutate it without impacting other callers (and potentially causing panics if
-		// the map is mutated concurrently). This trades off a small amount of performance
-		// and memory usage for safety.
-		return cloneStringMap(n.mergedParams)
-	}
-
-	// NOTE: we could propagate length hints down the parent chain in order to pass a
-	// more accurate capacity hint here, but the minimum size of a map already takes up
-	// to 8 K/V pairs without needing to allocate more buckets so in practice it doesn't
-	// matter much anyway.
-	result := make(params, len(n.ChildParams))
-	n.collectAllParamsAssumingReadLock(result)
-
-	// Cache the result for future requests
-	n.mergedParams = result
-
-	return cloneStringMap(result) // As above, we return a copy to allow safe mutation
-}
-
-func (n *paramNode) collectAllParams(dst params) {
-	n.mergedParamsMtx.RLock()
-	defer n.mergedParamsMtx.RUnlock()
-	n.collectAllParamsAssumingReadLock(dst)
-}
-
-func (n *paramNode) collectAllParamsAssumingReadLock(res params) {
-	// If we've already cached the flattened params for this node, we can accumulate from
-	// those directly, avoiding potentially needing to traverse the parent chain to
-	// collect all params
-	if n.mergedParams != nil {
-		for k, v := range n.mergedParams {
-			res[k] = v
-		}
-		return
-	}
-
-	// Collect params from the parent node first (if it exists)
-	if parentNode := paramNodeFromContext(n.Parent); parentNode != nil {
-		parentNode.collectAllParams(res)
-	}
-
-	// Then merge the child params, overwriting any existing bindings for a given
-	// parameter key so that more recent calls to WithParams take precedence.
-	for k, v := range n.ChildParams {
-		res[k] = v
-	}
-
-	// NOTE: here we intentionally _don't_ cache the result in this paramNode because
-	// doing so would require us to clone the map, making our overall memory usage O(n^2)
-	// in the length of the paramNode chain. The trade-off is that we may redundantly
-	// re-traverse the parent chain collecting parameters in some use-cases (i.e. if
-	// there is a very long parent chain with many leaf nodes at the bottom, and we query
-	// parameters for each of the leaf nodes separately).
+	mergedParams params
 }
 
 type contextKeyParamNode struct{}
