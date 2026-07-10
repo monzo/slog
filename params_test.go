@@ -2,9 +2,10 @@ package slog
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func Test_Params(t *testing.T) {
@@ -54,6 +55,22 @@ func Test_WithParams(t *testing.T) {
 		assert.Empty(t, ctx1)
 		assert.Equal(t, map[string]string{"key": "value1"}, Params(ctx2))
 		assert.Equal(t, map[string]string{"key": "value2"}, Params(ctx3))
+	})
+
+	t.Run("Supports custom ~string types", func(t *testing.T) {
+		type customEnum string
+
+		const (
+			val1 customEnum = "val1"
+			val2 customEnum = "val2"
+		)
+
+		ctx1 := context.Background()
+		ctx2 := WithParams(ctx1, map[customEnum]customEnum{val1: val2})
+		ctx3 := WithParam(ctx1, val1, val2)
+		assert.Empty(t, ctx1)
+		assert.Equal(t, map[string]string{"val1": "val2"}, Params(ctx2))
+		assert.Equal(t, map[string]string{"val1": "val2"}, Params(ctx3))
 	})
 }
 

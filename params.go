@@ -27,7 +27,7 @@ import (
 // We copy the contents of the map into an internal structure here, so while it
 // is safe to modify the map after being passed in, any changes won't be visible
 // to successive slog calls.
-func WithParams(parent context.Context, input map[string]string) context.Context {
+func WithParams[K ~string, V ~string](parent context.Context, input map[K]V) context.Context {
 	var p params
 	if node := paramNodeFromContext(parent); node != nil {
 		p = node.mergedParams
@@ -36,7 +36,7 @@ func WithParams(parent context.Context, input map[string]string) context.Context
 	}
 
 	for k, v := range input {
-		p = p.Set(k, v)
+		p = p.Set(string(k), string(v))
 	}
 	return context.WithValue(parent, contextKeyParamNode{}, &paramNode{
 		mergedParams: p,
@@ -44,8 +44,8 @@ func WithParams(parent context.Context, input map[string]string) context.Context
 }
 
 // WithParam is shorthand for calling WithParams with a single key-value pair.
-func WithParam(ctx context.Context, key, value string) context.Context {
-	return WithParams(ctx, map[string]string{key: value})
+func WithParam[K ~string, V ~string](ctx context.Context, key K, value V) context.Context {
+	return WithParams(ctx, map[K]V{key: value})
 }
 
 // Params returns all parameters stored in the given context using WithParams. This
